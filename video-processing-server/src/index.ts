@@ -1,7 +1,8 @@
 import express from "express";
 import ffmpeg from "fluent-ffmpeg";
-
-
+import { convertVideo, deleteProcessVideo, deleteRawVideo, downloadVideo, setUpDirectories, uploadProcessVideo } from "./storage";
+import { upload } from "@google-cloud/storage/build/cjs/src/resumable-upload";
+import { OutgoingMessage } from "http";
 
 const app = express();
 app.use(express.json());
@@ -12,30 +13,44 @@ app.get("/", (req, res)=>{
 })
 
 
-app.post("/process-video", (req, res)=>{
-    //get path of the input video that we want to convert in request video
-
-    const inputVideoPath = req.body.inputVideoPath;
-    const outputVideoPath = req.body.outputVideoPath;
-
-
-    //Error Handling
-
-    if(!inputVideoPath || !outputVideoPath){
-        res.status(400).send("Bad request: missing file path");
+app.post("/process-video", async (req, res)=>{
+    /// get teh bucket and file name fom the cloud pub / sub message
+   let data; 
+   try{ 
+    const message = Buffer.from(req.body.message.data, 'base64').toString('utf8');
+    data = JSON.parse(message);
+    if(!data.name){
+        throw new Error('Invalid message payload received');
     }
-    
-    ffmpeg(inputVideoPath)
-    .outputOption("-vf", "scale = -1:360")  // convert to 360p
-    .on("end", ()=>{
+   }catch(error){
+    console.error(error);
+    return res.status(400).send('Bad request : mssing filename');
+   }
 
-        res.status(200).send("video processing started");
-    })
-    .on("error", (err)=> {
-        console.log(`An error occureed: ${err.message}`); 
-        res.status(500).send(`Internal Server Error: ${err.message}`);
-    })
-    .save(outputVideoPath);
+   const inputFileName = data.name;
+   const outputFileName = `preocessed-${inputFileName}`;
+
+   // Download the raw video  from cloud storage
+
+   await downloadVideo(inputFileName);
+
+   try{ 
+       await convertVideo(inputFileName, outputFileName);
+    } catch (err){
+    await Promise.all([
+        deleteRawVideo(inputFileName),
+        deleteProcessVideo(outputFileName)]);
+    return res.status(500).send('Internaal server error:, video processing failed')
+
+   }
+   //Uplaod the processed video to cloud 
+   await uploadProcessVideo(inputFileName);
+
+  await Promise.all([
+    deleteRawVideo(inputFileName),
+    deleteProcessVideo(outputFileName)]);
+
+    return res.status(200).send('Processing finishing success');
 })
 
 // if not defined for process env, it defines to 3000;
