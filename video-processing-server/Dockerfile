@@ -1,5 +1,5 @@
 # Use an office Node runtime as parent image 
-From node:18
+FROM node:18
 
 #Set the working direction in the container to /app
 WORKDIR /app

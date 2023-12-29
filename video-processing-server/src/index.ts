@@ -1,16 +1,19 @@
 import express from "express";
 import ffmpeg from "fluent-ffmpeg";
-import { convertVideo, deleteProcessVideo, deleteRawVideo, downloadVideo, setUpDirectories, uploadProcessVideo } from "./storage";
+import { 
+    convertVideo, 
+    deleteProcessVideo, 
+    deleteRawVideo, 
+    downloadRawVideo, 
+    setUpDirectories, 
+    uploadProcessedVideo } from "./storage";
 import { upload } from "@google-cloud/storage/build/cjs/src/resumable-upload";
 import { OutgoingMessage } from "http";
 
+setUpDirectories();
+
 const app = express();
 app.use(express.json());
-
-
-app.get("/", (req, res)=>{
-    res.send('hellow world"');
-})
 
 
 app.post("/process-video", async (req, res)=>{
@@ -27,31 +30,36 @@ app.post("/process-video", async (req, res)=>{
     return res.status(400).send('Bad request : mssing filename');
    }
 
+
    const inputFileName = data.name;
-   const outputFileName = `preocessed-${inputFileName}`;
+   const outputFileName = `processed-${inputFileName}`;
 
    // Download the raw video  from cloud storage
 
-   await downloadVideo(inputFileName);
+   await downloadRawVideo(inputFileName);
 
    try{ 
        await convertVideo(inputFileName, outputFileName);
     } catch (err){
-    await Promise.all([
-        deleteRawVideo(inputFileName),
-        deleteProcessVideo(outputFileName)]);
+        await Promise.all
+        ([
+            deleteRawVideo(inputFileName),
+            deleteProcessVideo(outputFileName)
+        ]);
+
+            console.error(err);
     return res.status(500).send('Internaal server error:, video processing failed')
 
    }
    //Uplaod the processed video to cloud 
-   await uploadProcessVideo(inputFileName);
+   await uploadProcessedVideo(inputFileName);
 
   await Promise.all([
     deleteRawVideo(inputFileName),
     deleteProcessVideo(outputFileName)]);
 
-    return res.status(200).send('Processing finishing success');
-})
+    return res.status(200).send('Processing finishing success 200000');
+});
 
 // if not defined for process env, it defines to 3000;
 const port = process.env.PORT || 3000;

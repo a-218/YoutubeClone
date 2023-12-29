@@ -1,131 +1,93 @@
-// 1. Google cloud storage file interaction 
-// 2 local file interaction
+// google cloud storage interaction
 
 import { Storage } from "@google-cloud/storage";
 import fs from 'fs';
 import ffmpeg from "fluent-ffmpeg";
-import { resolve } from "path";
-import { rejects } from "assert";
-import { json } from "stream/consumers";
-import { dir } from "console";
 
 const storage = new Storage();
 
 const rawVideoBucket = "ali-raw-videos";
 const processedVideoBucket = "ali-processed-video";
 
-
 const localRawPath = "./raw-videos";
-const localProcessPath = "./process-videos";
-/**
- * Creats Local directories for raw and processed videos
-*/
+const localProcessPath = "./processed-videos";
+
 export function setUpDirectories(){
- ensureDirectoryExists(localRawPath);
- ensureDirectoryExists(localProcessPath);
+    ensureDirectoryExistence(localRawPath);
+    ensureDirectoryExistence(localProcessPath);
 }
 
-/**
- * @param rawVideoName the name of the file to convert fom {@link localRawVideoPath}
- *  @param processedVideoName - The name of the file to conver to {@link localProcessedVideoPath}
- *  @returns A promise that resolves whhen the video has been converted
- */
-export function convertVideo(rawVideoName: string, processedVideoName:string){
-   return new Promise<void>((resolve, reject) =>{
+function ensureDirectoryExistence(dirPath: string) {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true }); // recursive: true enables creating nested directories
+      console.log(`Directory created at ${dirPath}  1111`);
+    }
+}
+
+export function convertVideo(rawVideoName:string, processVideoName:string){
+   return new Promise<void>((resolve, reject)=>{
     ffmpeg(`${localRawPath}/${rawVideoName}`)
-    .outputOptions("-vf", "scalre=-1:360")
+    .outputOption("-vf", "scale=-1:360")
     .on("end", ()=>{
-        console.log("processing finsihed successfully");
+        console.log("11111processing finished successfully");
         resolve();
     })
-    .on("error", (err)=>{
-        console.log(`an error occure ${err.message}`);
+    .on("err", (err)=>{
+        console.log(`11111an error occurred :${err.message}`);
+        console.log(JSON.stringify(err));
         reject(err);
     })
-    .save(`${localProcessPath}/${[processedVideoName]}`);
-    });
+    .save(`${localProcessPath}/${processVideoName}`);
+   })
 }
 
-
-/**
- * 
- * @param fileName  the name of the file downlaod fom the 
- * {@link rawVideoBucket} bucket into the {@link localRawVideoPath} folder
- * @returns a promise that resolves when the file has been downloaded
- */
-export async function downloadVideo(fileName: string){
-    await storage.bucket(rawVideoBucket)
+export async function downloadRawVideo(fileName: string){
+   await storage.bucket(rawVideoBucket)
     .file(fileName)
-    .download({destination:`${localRawPath}/${fileName}`});
+    .download({destination: `${localRawPath}/${fileName}`});
 
-    console.log(`gs://${rawVideoBucket}/${fileName} downloaded to ${localRawPath}/${fileName}.`);
-
-
+    console.log(
+        `gs://${rawVideoBucket}/${fileName} downloaded to ${localRawPath}/${fileName}`)
+    
 }
 
-/**
- * 
- * @param fileName The name of the file to upload from the {@link localProcessedVideoPath} 
- * folder into the {@link processedVideoBucket}.
-* @returns a promise that resolves when the file has been uploaded
- */
-export async function uploadProcessVideo(fileName: string){
+export async function uploadProcessedVideo(fileName: string){
     const bucket = storage.bucket(processedVideoBucket);
 
-    await bucket.upload(`${localProcessPath}/${fileName}`, {
-        destination:fileName
+    await bucket.upload(`${localProcessPath}/${fileName}`,{
+        destination: fileName
     });
 
-    console.log(`${localProcessPath}/${fileName} uploaded to gs://${processedVideoBucket}/${fileName}.`);
-        //by default not public
+    console.log( `${localProcessPath}/${fileName} uploaded to gs:// ${processedVideoBucket}/${fileName}`);
     await bucket.file(fileName).makePublic();
 }
-   
 
-function deleteFile(filePath: string): Promise<void>{
+export function deleteRawVideo(fileName:string){
+    return deleteFile(`${localRawPath}/${fileName}`);
+}
+
+export function deleteProcessVideo(fileName:string){
+    return deleteFile(`${localProcessPath}/${fileName}`);
+}
+
+function deleteFile(filePath:string):Promise<void>{
     return new Promise((resolve, reject)=>{
         if(fs.existsSync(filePath)){
             fs.unlink(filePath, (err)=>{
                 if(err){
-                    console.log(`Failed to delete path 4 ${filePath}`, err);
+                    console.log(`xxxxxxFailed to delete ${filePath}`);
                     console.log(JSON.stringify(err));
                     reject(err);
                 }else{
-                  
-                    console.log(`file delete at ${filePath}`);
+                    console.log(`File deleted at ${filePath}`);
                     resolve();
+                    
                 }
             })
         }else{
-            console.log(`File not found at ${filePath}, skipping the delete`);
+            console.log(`File not found at ${filePath}, skipping delete.`);
             resolve();
         }
-    })
+    });
 }
 
-/**
- * 
- * @param fileName  the name of the file to deleete from the {@link localRawVideoPath} folder
- * @returns A promise that resolves when the file has been deleted
- */
-export function deleteRawVideo(fileName: string){
-    return deleteFile(`${localRawPath}/${fileName}`);
-}
-
-/**
- * 
- * @param fileName the name of teh file to deleete from teh {@link localProcessedVideoPath} folder
- * @returns A promise that resolves when the file has been deleted 
- */
-export function deleteProcessVideo(fileName: string){
-    return deleteFile( `${localProcessPath}/${fileName}`);
-}
-
-
-function ensureDirectoryExists(dirPath: string){
-    if(!fs.existsSync(dirPath)){
-        fs.mkdirSync(dirPath, {recursive:true});
-        // recursive trye eables creating nested directories
-        console.log(`Directory create at ${dirPath}`);
-    }
-}
