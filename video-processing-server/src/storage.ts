@@ -21,7 +21,11 @@ function ensureDirectoryExistence(dirPath: string) {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true }); // recursive: true enables creating nested directories
       console.log(`Directory created at ${dirPath}  1111`);
+    }else{
+        console.log('director already exist');
     }
+
+
 }
 
 export function convertVideo(rawVideoName:string, processVideoName:string){
@@ -52,13 +56,27 @@ export async function downloadRawVideo(fileName: string){
 }
 
 export async function uploadProcessedVideo(fileName: string){
+    console.log(`INisde the process video bucket ${fileName}`);
     const bucket = storage.bucket(processedVideoBucket);
 
-    await bucket.upload(`${localProcessPath}/${fileName}`,{
-        destination: fileName
-    });
+    // Upload video to the bucket
 
-    console.log( `${localProcessPath}/${fileName} uploaded to gs:// ${processedVideoBucket}/${fileName}`);
+    const filePath = `${localProcessPath}/${fileName}`;
+        if (!fs.existsSync(filePath)) {
+        console.error(`File not found at ${filePath}`);
+        // Handle this error condition appropriately, perhaps by throwing an error
+        throw new Error(`File not found at ${filePath}`);
+        }
+    await storage.bucket(processedVideoBucket)
+      .upload(`${localProcessPath}/${fileName}`, {
+        destination: fileName,
+      });
+
+    console.log(
+      `${localProcessPath}/${fileName} uploaded to gs://${processedVideoBucket}/${fileName}.`
+    );
+  
+    // Set the video to be publicly readable
     await bucket.file(fileName).makePublic();
 }
 

@@ -35,11 +35,13 @@ app.post("/process-video", async (req, res)=>{
    const outputFileName = `processed-${inputFileName}`;
 
    // Download the raw video  from cloud storage
-
+   console.log("starting to download");
    await downloadRawVideo(inputFileName);
 
    try{ 
+    console.log("starting to convert");
        await convertVideo(inputFileName, outputFileName);
+       console.log(`after to convert ${outputFileName}`);
     } catch (err){
         await Promise.all
         ([
@@ -52,7 +54,8 @@ app.post("/process-video", async (req, res)=>{
 
    }
    //Uplaod the processed video to cloud 
-   await uploadProcessedVideo(inputFileName);
+   console.log("starting to upload process video");
+   await uploadProcessedVideo(outputFileName);
 
   await Promise.all([
     deleteRawVideo(inputFileName),
