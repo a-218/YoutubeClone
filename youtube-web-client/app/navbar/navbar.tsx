@@ -6,6 +6,7 @@ import SignIn from "./sign-in";
 import { useEffect, useState } from "react";
 import { onAuthStateChangedHelper } from "../utilities/firebase/firebase";
 import {User} from "firebase/auth";
+import Upload from "./upload";
 
 export default function Navbar(){
     //init user state
@@ -27,10 +28,11 @@ export default function Navbar(){
                 <Image width={90} height={20}
                 src="/youtube-logo.svg" alt="Youtube Logo"/> 
             </Link>
-            <SignIn user = {user}/>
             {
-                /// too do add a upload a button only render if user sign in
+               user &&  <Upload/>
             }
+            <SignIn user = {user}/>
+            
         </nav>
     );
 }
