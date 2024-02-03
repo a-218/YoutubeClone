@@ -9,6 +9,7 @@ import {
     uploadProcessedVideo } from "./storage";
 import { upload } from "@google-cloud/storage/build/cjs/src/resumable-upload";
 import { OutgoingMessage } from "http";
+import { isVideoNew, setVideo } from "./firestore";
 
 setUpDirectories();
 
@@ -31,8 +32,19 @@ app.post("/process-video", async (req, res)=>{
    }
 
 
-   const inputFileName = data.name;
+   const inputFileName = data.name; //Formate of <UId> - <Date>.<Extension>
    const outputFileName = `processed-${inputFileName}`;
+   const videoId = inputFileName.split('.')[0];
+
+    if(!isVideoNew(videoId)){
+        return res.status(400).send('Bad request : video already processing or processed')
+    }else{
+        await setVideo(videoId, {
+            id: videoId, 
+            uid: videoId.split('-')[0],
+            status: 'processing'
+        } );
+    }
 
    // Download the raw video  from cloud storage
    console.log("starting to download");
@@ -56,6 +68,11 @@ app.post("/process-video", async (req, res)=>{
    //Uplaod the processed video to cloud 
    console.log("starting to upload process video");
    await uploadProcessedVideo(outputFileName);
+
+   await setVideo(videoId, {
+        status: 'processed',
+        filename: outputFileName
+    })
 
   await Promise.all([
     deleteRawVideo(inputFileName),
