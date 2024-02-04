@@ -30,6 +30,7 @@ initializeApp();
 const firestore = new Firestore();
 const storage = new Storage();
 
+const videoCollectionId = "videos";
 const rawVideoBucket = "ali-raw-videos";
 // const processedVideoBucket = "ali-processed-video";
 
@@ -66,4 +67,11 @@ export const generateUploadUrl = onCall({maxInstances: 1}, async (request) => {
         expires: Date.now()+ 15*60*1000,
     });
     return {url, fileName};
+});
+
+
+export const getVideos = onCall({maxInstances: 1}, async () =>{
+   const snapshot =
+   await firestore.collection(videoCollectionId).limit(10).get();
+   return snapshot.docs.map((doc) => doc.data());
 });
